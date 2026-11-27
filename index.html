@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JND Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: quiet lab instrument; the stimulus is the only thing with weight
+   IDEA: a photometer bench: two fields that meet at one edge
+   PICTURE: one large split field, left I and right I + delta
+   COLOUR and TYPE: neutral greys only so nothing biases the eye; Space Grotesk + Inter
+   LAYOUT: stimulus first and wide, controls under it, results table last */
+:root{color-scheme:light dark;--bg:light-dark(#ececea,#1c1c1c);--panel:light-dark(#fff,#262626);--ink:light-dark(#151515,#ececec);--mute:light-dark(#5a5a58,#a8a8a8);--line:light-dark(#d4d4d1,#3a3a3a);--acc:light-dark(#151515,#ececec)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,3vw,40px) max(4vw,16px);max-width:1100px;margin:0 auto}
+h1{font:600 clamp(26px,3.4vw,38px)/1.05 "Space Grotesk",Inter,sans-serif;margin:0 0 6px;text-wrap:balance}
+.lede{color:var(--mute);margin:0 0 16px;max-width:70ch}
+.stage{display:grid;grid-template-columns:1fr 1fr;height:clamp(200px,38vw,360px);border:14px solid #808080;border-radius:4px}
+.stage div{height:100%}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 4px}
+.grp{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lab{color:var(--mute);margin-right:4px}
+button{font:500 15px Inter,sans-serif;min-height:44px;padding:0 14px;border-radius:5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button[aria-pressed=true],button.primary{background:var(--acc);color:var(--panel);border-color:var(--acc)}
+button:focus-visible{outline:2px solid #2a78d6;outline-offset:2px}
+.read{font-variant-numeric:tabular-nums;font-size:17px;margin:6px 0 0}
+.read b{font-weight:600}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;margin-top:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 18px}
+h2{font:600 18px/1.2 "Space Grotesk",Inter,sans-serif;margin:0 0 10px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;font-size:14px;color:var(--mute)}
+ol{margin:4px 0 0;padding-left:20px;color:var(--mute)}ol li{margin:4px 0}
+.note{font-size:13px;color:var(--mute);margin-top:8px}
+.copied{font-size:14px;color:var(--mute)}
+.hidden{visibility:hidden}
+@media(max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){table{font-size:13px}.stage{border-width:8px}}
+</style>
+</head>
+<body>
+<main class="band">
+<h1>Find your just noticeable difference</h1>
+<p class="lede">Two grey fields touch in the middle. The left one stays at I; raise the right one one step at a time until you can only just see the edge between them.</p>
+
+<div class="stage" id="stage" aria-label="Two grey fields"><div id="L"></div><div id="R"></div></div>
+
+<div class="bar">
+  <div class="grp"><span class="lab">Base I:</span><span id="bases"></span></div>
+  <div class="grp"><button id="down" aria-label="Decrease right field">−1</button><button id="up" class="primary" aria-label="Increase right field">+1</button></div>
+  <div class="grp"><button id="seen">I can see the edge</button><button id="restart">Start again</button><button id="hide" aria-pressed="false">Hide numbers</button></div>
+</div>
+<p class="read" id="read"></p>
+
+<div class="grid">
+  <section class="card">
+    <h2>Your results</h2>
+    <table><thead><tr><th>I</th><th>Trials</th><th>ΔI (mean)</th><th>ΔI / I</th><th>Δ luminance / luminance</th></tr></thead><tbody id="tb"></tbody></table>
+    <div class="bar"><button id="copy">Copy table</button><button id="clear">Clear results</button><span class="copied" id="copied" aria-live="polite"></span></div>
+    <p class="note">ΔI / I uses the RGB numbers. The last column converts both values to light output with the standard sRGB screen curve (gamma), so it shows the ratio in actual light.</p>
+  </section>
+  <section class="card">
+    <h2>How to run it</h2>
+    <ol>
+      <li>Zoom 100 %, screen brightness normal, no glare on the screen.</li>
+      <li>Choose I = 20. Both fields look the same.</li>
+      <li>Press +1 slowly. When you can just see the edge, press “I can see the edge”.</li>
+      <li>Repeat 2–3 times for the same I (press “Start again”), then do I = 100 and I = 200.</li>
+      <li>Tip: use “Hide numbers” so the value does not bias you.</li>
+    </ol>
+  </section>
+</div>
+</main>
+<script>
+{
+const bases=[20,100,200];
+let I=20,d=0,hide=false;
+const res={20:[],100:[],200:[]};
+const $=id=>document.getElementById(id);
+const lin=v=>{const c=v/255;return c<=0.04045?c/12.92:((c+0.055)/1.055)**2.4;};
+const g=v=>`rgb(${v},${v},${v})`;
+$("bases").innerHTML=bases.map(b=>`<button data-b="${b}" aria-pressed="${b===I}">${b}</button>`).join(" ");
+function draw(){
+  $("L").style.background=g(I);$("R").style.background=g(Math.min(255,I+d));
+  $("read").innerHTML=hide?`Right field: <b>hidden</b>`:`Left: <b>${I}</b> · Right: <b>${I+d}</b> · ΔI = <b>${d}</b>`;
+  $("tb").innerHTML=bases.map(b=>{const a=res[b];if(!a.length)return `<tr><td>${b}</td><td>0</td><td>–</td><td>–</td><td>–</td></tr>`;
+    const m=a.reduce((s,x)=>s+x,0)/a.length;const rl=(lin(b+m)-lin(b))/lin(b);
+    return `<tr><td>${b}</td><td>${a.length} (${a.join(", ")})</td><td>${m.toFixed(1)}</td><td>${(m/b*100).toFixed(1)} %</td><td>${(rl*100).toFixed(1)} %</td></tr>`;}).join("");
+}
+$("bases").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;I=+b.dataset.b;d=0;
+  document.querySelectorAll("[data-b]").forEach(x=>x.setAttribute("aria-pressed",x===b));draw();});
+$("up").addEventListener("click",()=>{if(I+d<255){d++;draw();}});
+$("down").addEventListener("click",()=>{if(d>0){d--;draw();}});
+$("seen").addEventListener("click",()=>{if(d>0){res[I].push(d);d=0;draw();}});
+$("restart").addEventListener("click",()=>{d=0;draw();});
+$("hide").addEventListener("click",e=>{hide=!hide;e.currentTarget.setAttribute("aria-pressed",hide);draw();});
+$("clear").addEventListener("click",()=>{bases.forEach(b=>res[b]=[]);draw();});
+$("copy").addEventListener("click",async()=>{
+  const lines=["I | trials | mean ΔI | ΔI/I | Δlum/lum"].concat(bases.filter(b=>res[b].length).map(b=>{const a=res[b];const m=a.reduce((s,x)=>s+x,0)/a.length;
+    return `${b} | ${a.join(", ")} | ${m.toFixed(1)} | ${(m/b*100).toFixed(1)} % | ${(((lin(b+m)-lin(b))/lin(b))*100).toFixed(1)} %`;}));
+  try{await navigator.clipboard.writeText(lines.join("\n"));$("copied").textContent="Copied";}catch(err){$("copied").textContent="Copy not allowed here – write the values down";}
+});
+document.addEventListener("keydown",e=>{if(e.key==="ArrowUp"||e.key==="+"){$("up").click();}else if(e.key==="ArrowDown"||e.key==="-"){$("down").click();}});
+draw();
+}
+</script>
+</body>
+</html>
